@@ -2,10 +2,16 @@ node_modules/
 .next/
 out/
 build/
-.env
-.env.local
-.env*.local
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Secrets. `.env*` is deliberately broad — DATABASE_URL carries the Neon
+# password and SESSION_SECRET signs every session cookie, so the default has to
+# be "ignored" and the template the one explicit exception.
+.env*
+!.env.example
+
+# `vercel link` writes the project and org ids here, and pulls a fresh
+# VERCEL_OIDC_TOKEN into .env.local.
 .vercel

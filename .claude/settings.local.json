@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(timeout 25 vercel whoami)",
+      "Bash(echo \"exit=$?\")"
     ]
   }
 }
