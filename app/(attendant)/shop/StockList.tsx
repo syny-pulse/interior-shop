@@ -1,11 +1,26 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { StorefrontIcon } from '@phosphor-icons/react';
 import { useSync } from '@/components/offline/SyncProvider';
 import { MirrorGate } from '@/components/offline/MirrorGate';
-import { sellableItems, stockUnits } from '@/lib/offline/mirror';
-import { formatUGX, formatNumber, pluralise } from '@/lib/format';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { StockTable } from '@/components/stock/StockTable';
+import { StockFilterBar } from '@/components/stock/StockFilterBar';
+import { stockUnits } from '@/lib/offline/mirror';
+import {
+  NO_FILTERS,
+  categoriesPresent,
+  filterStockProducts,
+  sortStockProducts,
+  statusCounts,
+  stockProducts,
+  type StockFilters,
+  type StockSort,
+} from '@/lib/offline/stock';
+import { formatNumber, formatUGX, pluralise } from '@/lib/format';
+import { formatDate } from '@/lib/dates';
 
 /**
  * ATTENDANT VIEW.
@@ -17,6 +32,12 @@ import { formatUGX, formatNumber, pluralise } from '@/lib/format';
  *
  * The counts are projected, so a sale recorded seconds ago on a dead
  * connection has already come off the shelf here.
+ *
+ * Same table as the owner's, with the cost, margin and stock-value columns
+ * absent rather than blanked — see StockTable. What an attendant gains over the
+ * old plain list is the ability to FIND something ("do we have the grey fleece?"
+ * while a customer waits) and to see what is nearly gone, which is the thing
+ * they are best placed to notice and the owner is not.
  */
 export function StockList() {
   return (
@@ -29,18 +50,48 @@ export function StockList() {
 function StockListInner() {
   const { projection } = useSync();
 
-  const items = sellableItems(projection);
+  const [filters, setFilters] = useState<StockFilters>(NO_FILTERS);
+  const [sort, setSort] = useState<StockSort>('name');
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+
+  // sellableOnly applies the same rule as sellableItems(), which mirrors
+  // getSellableItems(): nothing archived, nothing empty, no dead categories. The
+  // sale form and this list must never disagree about what can be sold.
+  const products = useMemo(
+    () => stockProducts(projection, { sellableOnly: true }),
+    [projection],
+  );
+
+  const visible = useMemo(
+    () => sortStockProducts(filterStockProducts(products, filters), sort),
+    [products, filters, sort],
+  );
+
+  const categories = useMemo(() => categoriesPresent(products), [products]);
+  const counts = useMemo(() => statusCounts(products), [products]);
   const stock = stockUnits(projection);
 
-  const byCategory = new Map<string, typeof items>();
-  for (const item of items) {
-    const list = byCategory.get(item.categoryName) ?? [];
-    list.push(item);
-    byCategory.set(item.categoryName, list);
+  function toggle(key: string) {
+    setExpanded((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
+
+  if (products.length === 0) {
+    return (
+      <EmptyState
+        icon={StorefrontIcon}
+        title="Nothing in stock right now"
+        body="The owner has not added any stock, or everything has sold."
+      />
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="surface flex items-baseline justify-between gap-4 px-4 py-3.5">
         <span className="text-[0.8125rem] font-medium text-[var(--text-muted)]">
           Items on hand
@@ -50,51 +101,85 @@ function StockListInner() {
         </span>
       </div>
 
-      {items.length === 0 ? (
-        <div className="surface flex flex-col items-center gap-3 px-6 py-12 text-center">
-          <div
-            className="flex size-11 items-center justify-center rounded-full"
-            style={{ background: 'var(--accent-soft)', color: 'var(--accent-text)' }}
-          >
-            <StorefrontIcon size={20} weight="duotone" />
-          </div>
-          <p className="font-medium">Nothing in stock right now</p>
-          <p className="max-w-[38ch] text-[0.875rem] text-[var(--text-muted)]">
-            The owner has not added any stock, or everything has sold.
+      {counts.low > 0 && (
+        <div
+          className="rounded-[var(--radius-card)] border px-4 py-3"
+          style={{ background: 'var(--warn-soft)', borderColor: 'var(--warn-border)' }}
+        >
+          <p className="text-[0.875rem] font-medium" style={{ color: 'var(--warn)' }}>
+            {formatNumber(counts.low)} {pluralise(counts.low, 'item is', 'items are')} running
+            low
+          </p>
+          <p className="mt-0.5 text-[0.8125rem]" style={{ color: 'var(--warn)' }}>
+            Worth telling the owner before it sells out.
           </p>
         </div>
-      ) : (
-        <>
-          {[...byCategory.entries()].map(([category, list]) => (
-            <section key={category}>
-              <h2 className="mb-2 text-[0.9375rem] font-semibold">{category}</h2>
-              <ul className="surface divide-y overflow-hidden">
-                {list.map((item) => (
-                  <li
-                    key={item.key}
-                    className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium leading-snug">{item.specifics}</p>
-                      <p className="text-[0.8125rem] text-[var(--text-muted)]">
-                        {formatNumber(item.qtyRemaining)}{' '}
-                        {pluralise(item.qtyRemaining, 'left', 'left')}
-                      </p>
-                    </div>
-                    <span className="chip chip-accent">
-                      From {formatUGX(item.minPrice)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-
-          <Link href="/shop/sale" className="btn btn-primary w-full">
-            Record a sale
-          </Link>
-        </>
       )}
+
+      <StockFilterBar
+        filters={filters}
+        onChange={setFilters}
+        sort={sort}
+        onSort={setSort}
+        categories={categories}
+        variant="attendant"
+        shown={visible.length}
+        total={products.length}
+      />
+
+      {visible.length === 0 ? (
+        <div className="surface px-4 py-8 text-center">
+          <p className="font-medium">Nothing matches that search</p>
+          <button
+            type="button"
+            onClick={() => setFilters(NO_FILTERS)}
+            className="btn btn-secondary mt-3"
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        <StockTable
+          products={visible}
+          variant="attendant"
+          expanded={expanded}
+          onToggle={toggle}
+          sort={sort}
+          onSort={setSort}
+          renderDetail={(product) => (
+            <div className="space-y-2">
+              <p className="text-[0.8125rem] text-[var(--text-muted)]">
+                {formatNumber(product.qtyRemaining)} left of{' '}
+                {formatNumber(product.liveBaseline)}. The price shown is the lowest you
+                should sell for.
+              </p>
+              <ul className="space-y-1 text-[0.875rem]">
+                {product.batches
+                  .filter((batch) => batch.qtyRemaining > 0)
+                  .map((batch) => (
+                    <li
+                      key={batch.key}
+                      className="tnum flex flex-wrap items-baseline justify-between gap-x-3"
+                    >
+                      <span className="text-[var(--text-muted)]">
+                        In since {formatDate(batch.purchaseDate)}
+                      </span>
+                      <span>
+                        {formatNumber(batch.qtyRemaining)}{' '}
+                        {pluralise(batch.qtyRemaining, 'left', 'left')} · from{' '}
+                        {formatUGX(batch.minPrice)}
+                      </span>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+          )}
+        />
+      )}
+
+      <Link href="/shop/sale" className="btn btn-primary w-full">
+        Record a sale
+      </Link>
     </div>
   );
 }

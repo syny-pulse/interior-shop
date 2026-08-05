@@ -360,6 +360,11 @@ function toLocal<T extends { id: number; clientId?: string | null }>(row: T): Lo
 // rather than in components so there is one definition of, for example, what
 // counts as sellable — the answer has to match lib/queries.ts exactly or the
 // same screen shows different stock depending on whether it is online.
+//
+// The stock table's own derivations — batches grouped back into products, the
+// low-stock rule, filtering and sorting — live in lib/offline/stock.ts. They
+// are a screen's worth of shaping rather than a query, and stock.ts reuses the
+// sellable rule below so the two cannot drift.
 
 /** Mirrors getSellableItems(): not archived, something left, category alive. */
 export function sellableItems(projection: Projection) {

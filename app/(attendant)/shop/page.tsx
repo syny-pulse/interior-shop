@@ -20,7 +20,8 @@ export default async function ShopStockPage() {
       <div>
         <h1 className="text-[1.5rem] font-semibold tracking-tight">What is in stock</h1>
         <p className="mt-1 text-[0.9375rem] text-[var(--text-muted)]">
-          The price shown is the lowest you should sell for.
+          Search for anything a customer asks for. The price shown is the lowest you should
+          sell for.
         </p>
       </div>
 

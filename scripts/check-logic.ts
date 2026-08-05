@@ -32,6 +32,7 @@ import {
   marginPercent,
 } from '../lib/format';
 import { runOfflineChecks } from './check-offline';
+import { runStockChecks } from './check-stock';
 
 let failed = 0;
 function check(name: string, actual: unknown, expected: unknown) {
@@ -135,6 +136,7 @@ console.log('\n--- Date display is unambiguous ---');
 check('formatDate avoids DD/MM ambiguity', formatDate('2026-03-05'), '5 Mar 2026');
 
 runOfflineChecks(check);
+runStockChecks(check);
 
 console.log(`\n${failed === 0 ? 'ALL CHECKS PASSED' : `${failed} CHECK(S) FAILED`}\n`);
 process.exit(failed === 0 ? 0 : 1);

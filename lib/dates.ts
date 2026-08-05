@@ -23,6 +23,21 @@ export function addDays(isoDate: string, days: number): string {
   return dt.toISOString().slice(0, 10);
 }
 
+/**
+ * Whole days from one YYYY-MM-DD to another, negative if `to` is earlier.
+ *
+ * Both endpoints are read as UTC midnight, so the answer is a plain calendar
+ * difference and never shifts by one because the device is in a different zone
+ * from the shop.
+ */
+export function daysBetween(from: string, to: string): number {
+  const [fy, fm, fd] = from.split('-').map(Number);
+  const [ty, tm, td] = to.split('-').map(Number);
+  return Math.round(
+    (Date.UTC(ty, tm - 1, td) - Date.UTC(fy, fm - 1, fd)) / 86_400_000,
+  );
+}
+
 /** Day of week for a YYYY-MM-DD string, 0 = Sunday. Computed in UTC to stay stable. */
 function dayOfWeek(isoDate: string): number {
   const [y, m, d] = isoDate.split('-').map(Number);

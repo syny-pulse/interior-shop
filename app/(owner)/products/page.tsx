@@ -11,7 +11,7 @@ export default async function ProductsPage() {
     <div>
       <PageHeader
         title="Stock"
-        description="Everything you have bought, with what it cost you and what it should sell for."
+        description="What is on the shelf, what it is worth, and what is running out. Tap a row to see each shopping trip behind it, change the details, or buy more."
         action={{ href: '/products/new', label: 'Add stock' }}
       />
 
